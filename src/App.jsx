@@ -18,11 +18,11 @@ function formatDate(dateStr) {
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${["일","월","화","수","목","금","토"][d.getDay()]})`;
 }
 
-function DonutChart({ data, size = 180 }) {
+function DonutChart({ data, size = 160 }) {
   const total = data.reduce((s, d) => s + d.minutes, 0);
   if (total === 0) return (
     <div style={{ width:size, height:size, borderRadius:"50%", background:"#1e2030", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto" }}>
-      <span style={{ color:"#4a5270", fontSize:13 }}>기록 없음</span>
+      <span style={{ color:"#4a5270", fontSize:12 }}>기록 없음</span>
     </div>
   );
   let cum = 0;
@@ -49,7 +49,7 @@ function DonutChart({ data, size = 180 }) {
         <circle cx={cx} cy={cy} r={ir} fill="#13152a"/>
       </svg>
       <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", textAlign:"center", pointerEvents:"none" }}>
-        <div style={{ fontSize:20, fontWeight:700, color:"#e8eaf6", lineHeight:1 }}>{hrs>0?`${hrs}h `:""}{mins}m</div>
+        <div style={{ fontSize:18, fontWeight:700, color:"#e8eaf6", lineHeight:1 }}>{hrs>0?`${hrs}h `:""}{mins}m</div>
         <div style={{ fontSize:10, color:"#6b7299", marginTop:3 }}>총 기록</div>
       </div>
     </div>
@@ -122,7 +122,7 @@ export default function App() {
 핵심은 "시간 대비 결과물"입니다.
 형식:
 1. 한 줄 평가 (이모지 포함, 20자 이내)
-2. 시간 투자 대비 결과물 평가 (구체적으로)
+2. 시간 투자 대비 결과물 평가
 3. 아쉬운 점 1가지 (팩폭이되 따뜻하게)
 4. 내일 딱 하나 바꾼다면
 200자 이내. 마크다운 없이.`,
@@ -136,11 +136,11 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:"#0d0f1e", color:"#e8eaf6", fontFamily:"'Apple SD Gothic Neo','Pretendard',sans-serif", paddingBottom:80 }}>
+    <div style={{ maxWidth:480, margin:"0 auto", minHeight:"100vh", background:"#0d0f1e", color:"#e8eaf6", fontFamily:"'Apple SD Gothic Neo','Pretendard',sans-serif", paddingBottom:80 }}>
 
-      <div style={{ padding:"52px 20px 0", borderBottom:"1px solid #1e2038" }}>
+      <div style={{ padding:"48px 16px 0", borderBottom:"1px solid #1e2038" }}>
         <div style={{ fontSize:10, letterSpacing:4, color:"#4a5270", textTransform:"uppercase", marginBottom:3 }}>Daily Time Log</div>
-        <div style={{ fontSize:26, fontWeight:800 }}>시계부</div>
+        <div style={{ fontSize:24, fontWeight:800 }}>시계부</div>
         <div style={{ display:"flex", marginTop:12 }}>
           {[["today","기록"],["history","히스토리"]].map(([v,l])=>(
             <button key={v} onClick={()=>setView(v)} style={{
@@ -154,27 +154,33 @@ export default function App() {
       </div>
 
       {view==="today" && (
-        <div style={{ padding:"20px 20px 0" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+        <div style={{ padding:"16px 16px 0" }}>
+
+          {/* 날짜 */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
             <button onClick={()=>{ const d=new Date(viewDate+"T00:00:00"); d.setDate(d.getDate()-1); setViewDate(d.toISOString().slice(0,10)); setAiReview(""); }}
               style={{ background:"#1e2038", border:"none", color:"#8892b0", padding:"6px 14px", borderRadius:8, cursor:"pointer", fontSize:18 }}>‹</button>
-            <span style={{ fontSize:14, fontWeight:600, color:"#c8d0e8" }}>{formatDate(viewDate)}</span>
+            <span style={{ fontSize:13, fontWeight:600, color:"#c8d0e8" }}>{formatDate(viewDate)}</span>
             <button onClick={()=>{ const d=new Date(viewDate+"T00:00:00"); d.setDate(d.getDate()+1); const nd=d.toISOString().slice(0,10); if(nd<=todayKey()){setViewDate(nd);setAiReview("");} }}
               style={{ background:"#1e2038", border:"none", color:viewDate>=todayKey()?"#2a2e4a":"#8892b0", padding:"6px 14px", borderRadius:8, cursor:"pointer", fontSize:18 }}>›</button>
           </div>
 
-          <div style={{ background:"#13152a", borderRadius:16, padding:"16px", marginBottom:14 }}>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+          {/* 입력 */}
+          <div style={{ background:"#13152a", borderRadius:16, padding:"14px", marginBottom:12 }}>
+            {/* 카테고리 3열 그리드 */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:12 }}>
               {CATEGORIES.map(cat => (
                 <button key={cat.id} onClick={()=>setSelCat(cat.id)} style={{
-                  padding:"7px 12px", borderRadius:20, fontSize:12, cursor:"pointer",
+                  padding:"8px 4px", borderRadius:10, fontSize:11, cursor:"pointer",
                   background: selCat===cat.id ? cat.color : "#1e2038",
                   color: selCat===cat.id ? "#fff" : "#6b7299",
                   border: selCat===cat.id ? `1px solid ${cat.color}` : "1px solid #2a2e4a",
-                  fontWeight: selCat===cat.id ? 700 : 400, transition:"all .15s"
-                }}>{cat.emoji} {cat.label}</button>
+                  fontWeight: selCat===cat.id ? 700 : 400, transition:"all .15s",
+                  textAlign:"center", lineHeight:1.3
+                }}>{cat.emoji}<br/>{cat.label}</button>
               ))}
             </div>
+            {/* 시간 입력 */}
             <div style={{ display:"flex", gap:8, marginBottom:8 }}>
               <input type="number" placeholder="몇 분?" value={inputMin}
                 onChange={e=>setInputMin(e.target.value)}
@@ -182,28 +188,29 @@ export default function App() {
                 style={{ flex:1, background:"#1e2038", border:"1px solid #2a2e4a", borderRadius:10, padding:"11px 14px", color:"#e8eaf6", fontSize:14, outline:"none" }}/>
               <button onClick={addRecord} style={{ background:"#4F7CFF", border:"none", borderRadius:10, padding:"11px 22px", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>기록</button>
             </div>
-            <div style={{ display:"flex", gap:8 }}>
-              <input placeholder="메모 (선택)" value={memo} onChange={e=>setMemo(e.target.value)}
-                style={{ flex:1, background:"#1e2038", border:"1px solid #2a2e4a", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none" }}/>
-              <input placeholder="결과물 (선택)" value={output} onChange={e=>setOutput(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&addRecord()}
-                style={{ flex:1, background:"#1e2038", border:"1px solid #00C48C44", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none" }}/>
-            </div>
+            {/* 메모 - 세로 배치 */}
+            <input placeholder="메모 (선택)" value={memo} onChange={e=>setMemo(e.target.value)}
+              style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"1px solid #2a2e4a", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none", marginBottom:8 }}/>
+            <input placeholder="결과물 (선택)" value={output} onChange={e=>setOutput(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&addRecord()}
+              style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"1px solid #00C48C44", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none" }}/>
           </div>
 
+          {/* 결과물 요약 */}
           {allOutputs.length > 0 && (
-            <div style={{ background:"#13152a", borderRadius:16, padding:"14px 16px", marginBottom:14 }}>
-              <div style={{ fontSize:11, color:"#4a5270", letterSpacing:1, marginBottom:10 }}>오늘의 결과물</div>
+            <div style={{ background:"#13152a", borderRadius:16, padding:"12px 14px", marginBottom:12 }}>
+              <div style={{ fontSize:11, color:"#4a5270", letterSpacing:1, marginBottom:8 }}>오늘의 결과물</div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                 {allOutputs.map((r,i) => (
-                  <span key={i} style={{ background:"#00C48C22", border:"1px solid #00C48C44", borderRadius:20, padding:"4px 12px", fontSize:12, color:"#00C48C" }}>✓ {r.output}</span>
+                  <span key={i} style={{ background:"#00C48C22", border:"1px solid #00C48C44", borderRadius:20, padding:"4px 10px", fontSize:11, color:"#00C48C" }}>✓ {r.output}</span>
                 ))}
               </div>
             </div>
           )}
 
-          <div style={{ background:"#13152a", borderRadius:16, padding:"20px 16px", marginBottom:14 }}>
-            <div style={{ display:"flex", background:"#0d0f1e", borderRadius:10, padding:3, width:"fit-content", margin:"0 auto 16px" }}>
+          {/* 차트 */}
+          <div style={{ background:"#13152a", borderRadius:16, padding:"16px 14px", marginBottom:12 }}>
+            <div style={{ display:"flex", background:"#0d0f1e", borderRadius:10, padding:3, width:"fit-content", margin:"0 auto 14px" }}>
               {[["donut","도넛"],["bar","막대"]].map(([mode,label])=>(
                 <button key={mode} onClick={()=>setChartMode(mode)} style={{
                   padding:"5px 18px", borderRadius:8, border:"none", cursor:"pointer", fontSize:12,
@@ -215,13 +222,13 @@ export default function App() {
             </div>
             {chartMode==="donut" ? (
               <>
-                <DonutChart data={categoryTotals} size={180}/>
+                <DonutChart data={categoryTotals} size={160}/>
                 {activeCats.length>0 && (
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginTop:16, justifyContent:"center" }}>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 12px", marginTop:14, justifyContent:"center" }}>
                     {activeCats.map(cat=>(
-                      <div key={cat.id} style={{ display:"flex", alignItems:"center", gap:5 }}>
-                        <div style={{ width:8, height:8, borderRadius:"50%", background:cat.color }}/>
-                        <span style={{ fontSize:11, color:"#8892b0" }}>{cat.label}</span>
+                      <div key={cat.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                        <div style={{ width:7, height:7, borderRadius:"50%", background:cat.color }}/>
+                        <span style={{ fontSize:10, color:"#8892b0" }}>{cat.label}</span>
                       </div>
                     ))}
                   </div>
@@ -229,30 +236,30 @@ export default function App() {
               </>
             ) : (
               activeCats.length===0
-                ? <div style={{ textAlign:"center", color:"#3a4060", fontSize:13, padding:"24px 0" }}>아직 기록이 없어요</div>
+                ? <div style={{ textAlign:"center", color:"#3a4060", fontSize:13, padding:"20px 0" }}>아직 기록이 없어요</div>
                 : activeCats.sort((a,b)=>b.minutes-a.minutes).map(cat=>{
                   const pct = totalMin>0?cat.minutes/totalMin*100:0;
                   return (
-                    <div key={cat.id} style={{ marginBottom:12 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-                        <span style={{ fontSize:12, color:"#c8d0e8" }}>{cat.emoji} {cat.label}</span>
-                        <span style={{ fontSize:12, color:cat.color, fontWeight:600 }}>
+                    <div key={cat.id} style={{ marginBottom:10 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                        <span style={{ fontSize:11, color:"#c8d0e8" }}>{cat.emoji} {cat.label}</span>
+                        <span style={{ fontSize:11, color:cat.color, fontWeight:600 }}>
                           {Math.floor(cat.minutes/60)>0?`${Math.floor(cat.minutes/60)}h `:""}{cat.minutes%60}m
-                          <span style={{ color:"#4a5270", fontWeight:400, marginLeft:6 }}>{pct.toFixed(0)}%</span>
+                          <span style={{ color:"#4a5270", fontWeight:400, marginLeft:4 }}>{pct.toFixed(0)}%</span>
                         </span>
                       </div>
-                      <div style={{ height:6, background:"#1e2038", borderRadius:4 }}>
-                        <div style={{ height:6, width:`${pct}%`, background:cat.color, borderRadius:4, transition:"width .4s" }}/>
+                      <div style={{ height:5, background:"#1e2038", borderRadius:4 }}>
+                        <div style={{ height:5, width:`${pct}%`, background:cat.color, borderRadius:4, transition:"width .4s" }}/>
                       </div>
                     </div>
                   );
                 })
             )}
             {totalMin>0 && (
-              <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:20, paddingTop:16, borderTop:"1px solid #1e2038" }}>
+              <div style={{ display:"flex", justifyContent:"center", gap:20, marginTop:16, paddingTop:14, borderTop:"1px solid #1e2038" }}>
                 {typeStats.map(t=>(
                   <div key={t.type} style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:16, fontWeight:700, color:TYPE_COLOR[t.type] }}>{Math.floor(t.minutes/60)}h {t.minutes%60}m</div>
+                    <div style={{ fontSize:14, fontWeight:700, color:TYPE_COLOR[t.type] }}>{Math.floor(t.minutes/60)}h {t.minutes%60}m</div>
                     <div style={{ fontSize:10, color:"#4a5270", marginTop:2 }}>{TYPE_LABEL[t.type]}</div>
                   </div>
                 ))}
@@ -260,25 +267,26 @@ export default function App() {
             )}
           </div>
 
+          {/* 로그 */}
           {activeRecords.length>0 && (
-            <div style={{ background:"#13152a", borderRadius:16, padding:"16px", marginBottom:14 }}>
-              <div style={{ fontSize:11, color:"#4a5270", marginBottom:12, letterSpacing:1 }}>LOG</div>
+            <div style={{ background:"#13152a", borderRadius:16, padding:"14px", marginBottom:12 }}>
+              <div style={{ fontSize:11, color:"#4a5270", marginBottom:10, letterSpacing:1 }}>LOG</div>
               {[...activeRecords].reverse().map((r,i)=>{
                 const cat = CATEGORIES.find(c=>c.id===r.cat);
                 const realIdx = activeRecords.length-1-i;
                 return (
-                  <div key={i} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"10px 0", borderBottom:i<activeRecords.length-1?"1px solid #1e2038":"none" }}>
-                    <div style={{ display:"flex", alignItems:"flex-start", gap:10, flex:1 }}>
-                      <div style={{ width:34, height:34, borderRadius:10, background:cat?.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, flexShrink:0 }}>{cat?.emoji}</div>
+                  <div key={i} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"9px 0", borderBottom:i<activeRecords.length-1?"1px solid #1e2038":"none" }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", gap:8, flex:1 }}>
+                      <div style={{ width:32, height:32, borderRadius:9, background:cat?.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{cat?.emoji}</div>
                       <div>
                         <div style={{ fontSize:12, color:"#c8d0e8", fontWeight:500 }}>{cat?.label}</div>
-                        {r.memo && <div style={{ fontSize:11, color:"#4a5270", marginTop:2 }}>{r.memo}</div>}
-                        {r.output && <div style={{ fontSize:11, color:"#00C48C", marginTop:3 }}>✓ {r.output}</div>}
+                        {r.memo && <div style={{ fontSize:11, color:"#4a5270", marginTop:1 }}>{r.memo}</div>}
+                        {r.output && <div style={{ fontSize:11, color:"#00C48C", marginTop:2 }}>✓ {r.output}</div>}
                       </div>
                     </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
                       <div style={{ textAlign:"right" }}>
-                        <div style={{ fontSize:13, color:cat?.color, fontWeight:700 }}>{Math.floor(r.min/60)>0?`${Math.floor(r.min/60)}h `:""}{r.min%60}m</div>
+                        <div style={{ fontSize:12, color:cat?.color, fontWeight:700 }}>{Math.floor(r.min/60)>0?`${Math.floor(r.min/60)}h `:""}{r.min%60}m</div>
                         <div style={{ fontSize:10, color:"#3a4060" }}>{r.time}</div>
                       </div>
                       <button onClick={()=>deleteRecord(realIdx)} style={{ background:"none", border:"none", color:"#3a4060", cursor:"pointer", fontSize:16, padding:"0 4px" }}>×</button>
@@ -289,7 +297,8 @@ export default function App() {
             </div>
           )}
 
-          <div style={{ background:"#13152a", borderRadius:16, padding:"16px", marginBottom:20 }}>
+          {/* AI 총평 */}
+          <div style={{ background:"#13152a", borderRadius:16, padding:"14px", marginBottom:20 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:aiReview?12:0 }}>
               <div style={{ fontSize:11, color:"#4a5270", letterSpacing:1 }}>AI 총평</div>
               <button onClick={getAiReview} disabled={aiLoading||totalMin===0} style={{
@@ -299,7 +308,7 @@ export default function App() {
               }}>{aiLoading?"분석 중...":"총평 받기"}</button>
             </div>
             {aiReview && (
-              <div style={{ background:"#0d0f1e", borderRadius:10, padding:"14px 16px", fontSize:13, color:"#c8d0e8", lineHeight:1.75, whiteSpace:"pre-wrap", borderLeft:"3px solid #4F7CFF" }}>
+              <div style={{ background:"#0d0f1e", borderRadius:10, padding:"12px 14px", fontSize:13, color:"#c8d0e8", lineHeight:1.75, whiteSpace:"pre-wrap", borderLeft:"3px solid #4F7CFF" }}>
                 {aiReview}
               </div>
             )}
@@ -308,7 +317,7 @@ export default function App() {
       )}
 
       {view==="history" && (
-        <div style={{ padding:"20px" }}>
+        <div style={{ padding:"16px" }}>
           {historyDates.length===0
             ? <div style={{ textAlign:"center", color:"#3a4060", fontSize:13, marginTop:60 }}>
                 <div style={{ fontSize:32, marginBottom:12 }}>📭</div>아직 기록이 없어요
@@ -322,13 +331,13 @@ export default function App() {
               return (
                 <button key={date} onClick={()=>{ setViewDate(date); setView("today"); setAiReview(""); }} style={{
                   width:"100%", background:"#13152a", border:"1px solid #1e2038", borderRadius:14,
-                  padding:"14px 16px", marginBottom:10, cursor:"pointer", textAlign:"left", display:"block"
+                  padding:"12px 14px", marginBottom:10, cursor:"pointer", textAlign:"left", display:"block", boxSizing:"border-box"
                 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                     <span style={{ fontSize:13, color:"#c8d0e8", fontWeight:600 }}>{formatDate(date)}</span>
                     <span style={{ fontSize:12, color:"#4a5270" }}>총 {Math.floor(tot/60)}h {tot%60}m</span>
                   </div>
-                  <div style={{ display:"flex", gap:12, marginTop:6 }}>
+                  <div style={{ display:"flex", gap:10, marginTop:5 }}>
                     <span style={{ fontSize:11, color:"#00C48C" }}>생산 {Math.floor(prod/60)}h {prod%60}m</span>
                     <span style={{ fontSize:11, color:"#FF6B6B" }}>소비 {Math.floor(cons/60)}h {cons%60}m</span>
                     {outs>0 && <span style={{ fontSize:11, color:"#00C48C" }}>결과물 {outs}개</span>}
