@@ -58,28 +58,30 @@ function DonutChart({ data, size = 160 }) {
 
 const STORAGE_KEY = "sigyebu_records_v1";
 const HIST_KEY = "sigyebu_hist_v1";
+const NOTE_KEY = "sigyebu_notes_v1";
 
 export default function App() {
   const [records, setRecords] = useState({});
   const [historyDates, setHistoryDates] = useState([]);
+  const [notes, setNotes] = useState({});
   const [viewDate, setViewDate] = useState(todayKey());
   const [selCat, setSelCat] = useState(CATEGORIES[0].id);
   const [inputMin, setInputMin] = useState("");
   const [memo, setMemo] = useState("");
   const [output, setOutput] = useState("");
-  const [aiReview, setAiReview] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
   const [view, setView] = useState("today");
   const [chartMode, setChartMode] = useState("donut");
 
   useEffect(() => {
     try { const r = localStorage.getItem(STORAGE_KEY); if(r) setRecords(JSON.parse(r)); } catch {}
     try { const r = localStorage.getItem(HIST_KEY); if(r) setHistoryDates(JSON.parse(r)); } catch {}
+    try { const r = localStorage.getItem(NOTE_KEY); if(r) setNotes(JSON.parse(r)); } catch {}
   }, []);
 
-  const save = useCallback((rec, hist) => {
+  const save = useCallback((rec, hist, nts) => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rec)); } catch {}
     try { if(hist!==undefined) localStorage.setItem(HIST_KEY, JSON.stringify(hist)); } catch {}
+    try { if(nts!==undefined) localStorage.setItem(NOTE_KEY, JSON.stringify(nts)); } catch {}
   }, []);
 
   const activeRecords = records[viewDate] || [];
@@ -97,47 +99,26 @@ export default function App() {
     const updated = { ...records, [date]: [...(records[date]||[]), newRec] };
     const newHist = historyDates.includes(date) ? historyDates : [date,...historyDates].slice(0,90);
     setRecords(updated); setHistoryDates(newHist); save(updated, newHist);
-    setInputMin(""); setMemo(""); setOutput(""); setAiReview("");
+    setInputMin(""); setMemo(""); setOutput("");
   };
 
   const deleteRecord = (idx) => {
     const updated = { ...records, [viewDate]: (records[viewDate]||[]).filter((_,i)=>i!==idx) };
-    setRecords(updated); save(updated); setAiReview("");
+    setRecords(updated); save(updated);
   };
 
-  const getAiReview = async () => {
-    if (totalMin === 0) return;
-    setAiLoading(true); setAiReview("");
-    const summary = categoryTotals.filter(c=>c.minutes>0).map(c=>`${c.label} ${Math.floor(c.minutes/60)}h ${c.minutes%60}m`).join(", ");
-    const productive = categoryTotals.filter(c=>c.type==="green").reduce((s,c)=>s+c.minutes,0);
-    const consumed = categoryTotals.filter(c=>c.type==="red").reduce((s,c)=>s+c.minutes,0);
-    const outputList = allOutputs.length>0 ? allOutputs.map(r=>r.output).join(", ") : "없음";
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({
-          model:"claude-sonnet-4-6", max_tokens:1000,
-          system:`당신은 생산성 코치입니다. 하루 시간 기록과 결과물을 보고 솔직한 총평을 해주세요.
-핵심은 "시간 대비 결과물"입니다.
-형식:
-1. 한 줄 평가 (이모지 포함, 20자 이내)
-2. 시간 투자 대비 결과물 평가
-3. 아쉬운 점 1가지 (팩폭이되 따뜻하게)
-4. 내일 딱 하나 바꾼다면
-200자 이내. 마크다운 없이.`,
-          messages:[{ role:"user", content:`${formatDate(viewDate)}\n시간: ${summary}\n결과물: ${outputList}\n총 ${Math.floor(totalMin/60)}h ${totalMin%60}m | 생산 ${Math.floor(productive/60)}h ${productive%60}m | 소비 ${Math.floor(consumed/60)}h ${consumed%60}m` }]
-        })
-      });
-      const data = await res.json();
-      setAiReview(data.content?.find(b=>b.type==="text")?.text || "총평 실패");
-    } catch { setAiReview("총평을 불러오지 못했어요."); }
-    setAiLoading(false);
+  const saveNote = (date, text) => {
+    const updated = { ...notes, [date]: text };
+    setNotes(updated);
+    save(records, undefined, updated);
   };
+
+  const S = { background:"#13152a", borderRadius:14, padding:"14px", marginBottom:10 };
 
   return (
     <div style={{ maxWidth:480, margin:"0 auto", minHeight:"100vh", background:"#0d0f1e", color:"#e8eaf6", fontFamily:"'Apple SD Gothic Neo','Pretendard',sans-serif", paddingBottom:80 }}>
 
+      {/* 헤더 */}
       <div style={{ padding:"48px 16px 0", borderBottom:"1px solid #1e2038" }}>
         <div style={{ fontSize:10, letterSpacing:4, color:"#4a5270", textTransform:"uppercase", marginBottom:3 }}>Daily Time Log</div>
         <div style={{ fontSize:24, fontWeight:800 }}>시계부</div>
@@ -154,62 +135,47 @@ export default function App() {
       </div>
 
       {view==="today" && (
-        <div style={{ padding:"16px 16px 0" }}>
+        <div style={{ padding:"14px 16px 0" }}>
 
           {/* 날짜 */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-            <button onClick={()=>{ const d=new Date(viewDate+"T00:00:00"); d.setDate(d.getDate()-1); setViewDate(d.toISOString().slice(0,10)); setAiReview(""); }}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+            <button onClick={()=>{ const d=new Date(viewDate+"T00:00:00"); d.setDate(d.getDate()-1); setViewDate(d.toISOString().slice(0,10)); }}
               style={{ background:"#1e2038", border:"none", color:"#8892b0", padding:"6px 14px", borderRadius:8, cursor:"pointer", fontSize:18 }}>‹</button>
             <span style={{ fontSize:13, fontWeight:600, color:"#c8d0e8" }}>{formatDate(viewDate)}</span>
-            <button onClick={()=>{ const d=new Date(viewDate+"T00:00:00"); d.setDate(d.getDate()+1); const nd=d.toISOString().slice(0,10); if(nd<=todayKey()){setViewDate(nd);setAiReview("");} }}
+            <button onClick={()=>{ const d=new Date(viewDate+"T00:00:00"); d.setDate(d.getDate()+1); const nd=d.toISOString().slice(0,10); if(nd<=todayKey()){setViewDate(nd);} }}
               style={{ background:"#1e2038", border:"none", color:viewDate>=todayKey()?"#2a2e4a":"#8892b0", padding:"6px 14px", borderRadius:8, cursor:"pointer", fontSize:18 }}>›</button>
           </div>
 
-          {/* 입력 */}
-          <div style={{ background:"#13152a", borderRadius:16, padding:"14px", marginBottom:12 }}>
-            {/* 카테고리 3열 그리드 */}
+          {/* 1. 입력 */}
+          <div style={S}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:12 }}>
               {CATEGORIES.map(cat => (
                 <button key={cat.id} onClick={()=>setSelCat(cat.id)} style={{
                   padding:"8px 4px", borderRadius:10, fontSize:11, cursor:"pointer",
                   background: selCat===cat.id ? cat.color : "#1e2038",
                   color: selCat===cat.id ? "#fff" : "#6b7299",
-                  border: selCat===cat.id ? `1px solid ${cat.color}` : "1px solid #2a2e4a",
+                  border: "none",
                   fontWeight: selCat===cat.id ? 700 : 400, transition:"all .15s",
-                  textAlign:"center", lineHeight:1.3
+                  textAlign:"center", lineHeight:1.4
                 }}>{cat.emoji}<br/>{cat.label}</button>
               ))}
             </div>
-            {/* 시간 입력 */}
             <div style={{ display:"flex", gap:8, marginBottom:8 }}>
               <input type="number" placeholder="몇 분?" value={inputMin}
                 onChange={e=>setInputMin(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&addRecord()}
-                style={{ flex:1, background:"#1e2038", border:"1px solid #2a2e4a", borderRadius:10, padding:"11px 14px", color:"#e8eaf6", fontSize:14, outline:"none" }}/>
+                style={{ flex:1, background:"#1e2038", border:"none", borderRadius:10, padding:"11px 14px", color:"#e8eaf6", fontSize:14, outline:"none" }}/>
               <button onClick={addRecord} style={{ background:"#4F7CFF", border:"none", borderRadius:10, padding:"11px 22px", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>기록</button>
             </div>
-            {/* 메모 - 세로 배치 */}
             <input placeholder="메모 (선택)" value={memo} onChange={e=>setMemo(e.target.value)}
-              style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"1px solid #2a2e4a", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none", marginBottom:8 }}/>
+              style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"none", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none", marginBottom:8 }}/>
             <input placeholder="결과물 (선택)" value={output} onChange={e=>setOutput(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&addRecord()}
-              style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"1px solid #00C48C44", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none" }}/>
+              style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"none", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none" }}/>
           </div>
 
-          {/* 결과물 요약 */}
-          {allOutputs.length > 0 && (
-            <div style={{ background:"#13152a", borderRadius:16, padding:"12px 14px", marginBottom:12 }}>
-              <div style={{ fontSize:11, color:"#4a5270", letterSpacing:1, marginBottom:8 }}>오늘의 결과물</div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                {allOutputs.map((r,i) => (
-                  <span key={i} style={{ background:"#00C48C22", border:"1px solid #00C48C44", borderRadius:20, padding:"4px 10px", fontSize:11, color:"#00C48C" }}>✓ {r.output}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 차트 */}
-          <div style={{ background:"#13152a", borderRadius:16, padding:"16px 14px", marginBottom:12 }}>
+          {/* 2. 차트 */}
+          <div style={S}>
             <div style={{ display:"flex", background:"#0d0f1e", borderRadius:10, padding:3, width:"fit-content", margin:"0 auto 14px" }}>
               {[["donut","도넛"],["bar","막대"]].map(([mode,label])=>(
                 <button key={mode} onClick={()=>setChartMode(mode)} style={{
@@ -267,9 +233,19 @@ export default function App() {
             )}
           </div>
 
-          {/* 로그 */}
+          {/* 3. 로그 + 결과물 */}
           {activeRecords.length>0 && (
-            <div style={{ background:"#13152a", borderRadius:16, padding:"14px", marginBottom:12 }}>
+            <div style={S}>
+              {allOutputs.length>0 && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:11, color:"#4a5270", letterSpacing:1, marginBottom:8 }}>오늘의 결과물</div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                    {allOutputs.map((r,i) => (
+                      <span key={i} style={{ background:"#00C48C22", borderRadius:20, padding:"4px 10px", fontSize:11, color:"#00C48C" }}>✓ {r.output}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div style={{ fontSize:11, color:"#4a5270", marginBottom:10, letterSpacing:1 }}>LOG</div>
               {[...activeRecords].reverse().map((r,i)=>{
                 const cat = CATEGORIES.find(c=>c.id===r.cat);
@@ -297,27 +273,21 @@ export default function App() {
             </div>
           )}
 
-          {/* AI 총평 */}
-          <div style={{ background:"#13152a", borderRadius:16, padding:"14px", marginBottom:20 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:aiReview?12:0 }}>
-              <div style={{ fontSize:11, color:"#4a5270", letterSpacing:1 }}>AI 총평</div>
-              <button onClick={getAiReview} disabled={aiLoading||totalMin===0} style={{
-                background:"#4F7CFF22", border:"1px solid #4F7CFF44", borderRadius:8, padding:"7px 14px",
-                color:aiLoading?"#4a5270":"#4F7CFF", fontSize:12,
-                cursor:totalMin===0?"default":"pointer", fontWeight:500, opacity:totalMin===0?0.4:1
-              }}>{aiLoading?"분석 중...":"총평 받기"}</button>
-            </div>
-            {aiReview && (
-              <div style={{ background:"#0d0f1e", borderRadius:10, padding:"12px 14px", fontSize:13, color:"#c8d0e8", lineHeight:1.75, whiteSpace:"pre-wrap", borderLeft:"3px solid #4F7CFF" }}>
-                {aiReview}
-              </div>
-            )}
+          {/* 4. 셀프 총평 */}
+          <div style={{ ...S, marginBottom:20 }}>
+            <div style={{ fontSize:11, color:"#4a5270", letterSpacing:1, marginBottom:10 }}>오늘 한 줄 평</div>
+            <textarea
+              placeholder="오늘 하루 어땠어? 자유롭게 적어봐"
+              value={notes[viewDate]||""}
+              onChange={e=>saveNote(viewDate, e.target.value)}
+              style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"none", borderRadius:10, padding:"10px 12px", color:"#e8eaf6", fontSize:13, outline:"none", resize:"none", minHeight:80, lineHeight:1.6 }}
+            />
           </div>
         </div>
       )}
 
       {view==="history" && (
-        <div style={{ padding:"16px" }}>
+        <div style={{ padding:"14px 16px" }}>
           {historyDates.length===0
             ? <div style={{ textAlign:"center", color:"#3a4060", fontSize:13, marginTop:60 }}>
                 <div style={{ fontSize:32, marginBottom:12 }}>📭</div>아직 기록이 없어요
@@ -328,9 +298,10 @@ export default function App() {
               const prod = recs.filter(r=>CATEGORIES.find(c=>c.id===r.cat)?.type==="green").reduce((s,r)=>s+r.min,0);
               const cons = recs.filter(r=>CATEGORIES.find(c=>c.id===r.cat)?.type==="red").reduce((s,r)=>s+r.min,0);
               const outs = recs.filter(r=>r.output).length;
+              const note = notes[date];
               return (
-                <button key={date} onClick={()=>{ setViewDate(date); setView("today"); setAiReview(""); }} style={{
-                  width:"100%", background:"#13152a", border:"1px solid #1e2038", borderRadius:14,
+                <button key={date} onClick={()=>{ setViewDate(date); setView("today"); }} style={{
+                  width:"100%", background:"#13152a", border:"none", borderRadius:14,
                   padding:"12px 14px", marginBottom:10, cursor:"pointer", textAlign:"left", display:"block", boxSizing:"border-box"
                 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -342,6 +313,7 @@ export default function App() {
                     <span style={{ fontSize:11, color:"#FF6B6B" }}>소비 {Math.floor(cons/60)}h {cons%60}m</span>
                     {outs>0 && <span style={{ fontSize:11, color:"#00C48C" }}>결과물 {outs}개</span>}
                   </div>
+                  {note && <div style={{ fontSize:11, color:"#6b7299", marginTop:6, fontStyle:"italic" }}>"{note}"</div>}
                   <div style={{ marginTop:8, display:"flex", height:3, borderRadius:3, overflow:"hidden" }}>
                     {["green","yellow","red"].map(t=>{ const m=recs.filter(r=>CATEGORIES.find(c=>c.id===r.cat)?.type===t).reduce((s,r)=>s+r.min,0); return tot>0?<div key={t} style={{ width:`${m/tot*100}%`, background:TYPE_COLOR[t] }}/>:null; })}
                   </div>
