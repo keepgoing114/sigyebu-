@@ -1,37 +1,37 @@
 import { useState, useEffect, useCallback } from "react";
 
 const CATEGORIES = [
-  { id: "work",      label: "업무",     emoji: "💼", color: "#4F7CFF", type: "green" },
-  { id: "exercise",  label: "운동·휴식", emoji: "💪", color: "#00C48C", type: "green" },
-  { id: "reading",   label: "독서·공부", emoji: "📚", color: "#00B8D9", type: "green" },
-  { id: "routine",   label: "루틴·생활", emoji: "🍽️", color: "#B0BAC9", type: "yellow" },
-  { id: "social",    label: "소셜·관계", emoji: "🤝", color: "#FFB547", type: "yellow" },
-  { id: "waste",     label: "소비·낭비", emoji: "📱", color: "#FF6B6B", type: "red" },
+  { id: "work",      label: "업무",       emoji: "💼", color: "#4F7CFF", type: "green" },
+  { id: "exercise",  label: "운동",       emoji: "🚶", color: "#00C48C", type: "green" },
+  { id: "routine",   label: "루틴",       emoji: "📚", color: "#7C3AED", type: "green" },
+  { id: "daily",     label: "생활",       emoji: "🏠", color: "#FF8C69", type: "yellow" },
+  { id: "social",    label: "관계",       emoji: "🤝", color: "#FFD93D", type: "yellow" },
+  { id: "waste",     label: "소비",       emoji: "📺", color: "#FF6B6B", type: "red" },
 ];
 
-const TYPE_COLOR = { green: "#00C48C", yellow: "#FFB547", red: "#FF6B6B" };
+const TYPE_COLOR = { green: "#00C48C", yellow: "#FFD93D", red: "#FF6B6B" };
 const TYPE_LABEL = { green: "생산", yellow: "필수", red: "소비" };
 
 const SAMPLE_RECORDS = {
   "2026-06-15": [
-    { cat: "work", min: 90, memo: "블로그 기획", output: "초안 1개", time: "10:00" },
-    { cat: "reading", min: 35, memo: "듀오링고", output: "일본어 6회", time: "17:00" },
-    { cat: "routine", min: 130, memo: "클로드&깃허브", output: "시계부 만들기", time: "17:04" },
+    { cat: "work",     min: 90,  memo: "블로그 기획",      output: "초안 1개",      time: "10:00" },
+    { cat: "routine",  min: 35,  memo: "듀오링고",          output: "일본어 6회",    time: "17:00" },
+    { cat: "daily",    min: 130, memo: "클로드&깃허브",     output: "시계부 만들기", time: "17:04" },
   ],
   "2026-06-14": [
-    { cat: "work", min: 120, memo: "쇼츠 스크립트", output: "스크립트 2개", time: "11:00" },
-    { cat: "waste", min: 90, memo: "유튜브", output: "", time: "20:00" },
-    { cat: "exercise", min: 40, memo: "헬스", output: "", time: "19:00" },
+    { cat: "work",     min: 120, memo: "쇼츠 스크립트",    output: "스크립트 2개",  time: "11:00" },
+    { cat: "waste",    min: 90,  memo: "유튜브",            output: "",              time: "20:00" },
+    { cat: "exercise", min: 40,  memo: "저녁 걷기",         output: "",              time: "19:00" },
   ],
   "2026-06-13": [
-    { cat: "work", min: 60, memo: "클라이언트 보고서", output: "보고서 완성", time: "14:00" },
-    { cat: "social", min: 120, memo: "친구 만남", output: "", time: "18:00" },
-    { cat: "waste", min: 60, memo: "SNS", output: "", time: "22:00" },
+    { cat: "work",     min: 60,  memo: "클라이언트 보고서", output: "보고서 완성",   time: "14:00" },
+    { cat: "social",   min: 120, memo: "친구 만남",         output: "",              time: "18:00" },
+    { cat: "waste",    min: 60,  memo: "SNS",               output: "",              time: "22:00" },
   ],
   "2026-06-12": [
-    { cat: "reading", min: 60, memo: "독서", output: "책 50p", time: "09:00" },
-    { cat: "exercise", min: 50, memo: "런닝", output: "", time: "07:00" },
-    { cat: "work", min: 180, memo: "콘텐츠 기획", output: "기획서 완성", time: "13:00" },
+    { cat: "routine",  min: 60,  memo: "독서",              output: "책 50p",        time: "09:00" },
+    { cat: "exercise", min: 50,  memo: "아침 달리기",       output: "",              time: "07:00" },
+    { cat: "work",     min: 180, memo: "콘텐츠 기획",       output: "기획서 완성",   time: "13:00" },
   ],
 };
 
@@ -39,6 +39,13 @@ const SAMPLE_NOTES = {
   "2026-06-15": "시간을 헛되이 보내지말자",
   "2026-06-14": "스크립트 잘 썼는데 유튜브를 너무 봤다",
   "2026-06-12": "오늘은 집중이 잘 됐어",
+};
+
+const SAMPLE_HIGHLIGHTS = {
+  "2026-06-15": { text: "블로그 초안 1개 완성", done: true },
+  "2026-06-14": { text: "쇼츠 스크립트 2개 완성", done: true },
+  "2026-06-13": { text: "클라이언트 보고서 제출", done: false },
+  "2026-06-12": { text: "콘텐츠 기획서 완성", done: true },
 };
 
 // ── 유틸 ──────────────────────────────────────────────
@@ -64,7 +71,7 @@ function getProductivityColor(recs) {
   const prod = recs.filter(r => CATEGORIES.find(c=>c.id===r.cat)?.type==="green").reduce((s,r) => s+r.min, 0);
   const pct = total > 0 ? prod/total*100 : 0;
   if (pct >= 70) return "#00C48C";
-  if (pct >= 40) return "#FFB547";
+  if (pct >= 40) return "#FFD93D";
   return "#FF6B6B";
 }
 
@@ -107,18 +114,46 @@ function DonutChart({ data, size = 160 }) {
   );
 }
 
-// ── WeeklyReport ──────────────────────────────────────
-function WeeklyReport({ records, notes }) {
+// ── 주차 계산 유틸 ────────────────────────────────────
+function getWeekInfo(mondayDate) {
+  const mon = new Date(mondayDate);
+  // 목요일 기준으로 월 귀속 결정 (그 주에 더 많은 날이 속한 월)
+  const thu = new Date(mon);
+  thu.setDate(mon.getDate() + 3);
+  const firstDay = new Date(thu.getFullYear(), thu.getMonth(), 1);
+  const weekNum = Math.ceil((thu.getDate() + firstDay.getDay()) / 7);
+  return { month: thu.getMonth() + 1, weekNum };
+}
+
+function getMondayOfWeek(offsetWeeks) {
   const today = new Date();
   const dow = today.getDay();
   const monday = new Date(today);
-  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + offsetWeeks * 7);
+  return monday;
+}
 
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+// ── WeeklyReport ──────────────────────────────────────
+function WeeklyReport({ records, notes, highlights }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const monday = getMondayOfWeek(weekOffset);
   const weekDays = Array.from({length:7}, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    return dateKey(d);
   });
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const { month: weekMonth, weekNum } = getWeekInfo(monday);
+  const weekLabel = `${weekMonth}월 ${weekNum}주`;
+  const rangeLabel = `${monday.getMonth()+1}.${monday.getDate()}~${sunday.getMonth()+1}.${sunday.getDate()}`;
+  const isCurrentWeek = weekOffset === 0;
 
   const DAY_LABELS = ["월","화","수","목","금","토","일"];
 
@@ -127,108 +162,138 @@ function WeeklyReport({ records, notes }) {
     const total = recs.reduce((s,r)=>s+r.min, 0);
     const prod = recs.filter(r=>CATEGORIES.find(c=>c.id===r.cat)?.type==="green").reduce((s,r)=>s+r.min, 0);
     const prodRate = total > 0 ? prod/total*100 : 0;
-    return { date, label: DAY_LABELS[i], total, prod, prodRate };
+    const catMins = {};
+    CATEGORIES.forEach(cat => {
+      catMins[cat.id] = recs.filter(r=>r.cat===cat.id).reduce((s,r)=>s+r.min, 0);
+    });
+    return { date, label: DAY_LABELS[i], total, prod, prodRate, catMins };
   });
 
-  const maxTotal = Math.max(...weekData.map(d=>d.total), 1);
   const weekTotal = weekData.reduce((s,d)=>s+d.total, 0);
   const weekProd = weekData.reduce((s,d)=>s+d.prod, 0);
+  const maxTotal = Math.max(...weekData.map(d=>d.total), 1);
 
   const catTotals = CATEGORIES.map(cat => ({
     ...cat,
     minutes: weekDays.reduce((s, date) =>
       s + (records[date]||[]).filter(r=>r.cat===cat.id).reduce((a,r)=>a+r.min, 0), 0)
-  })).filter(c=>c.minutes>0).sort((a,b)=>b.minutes-a.minutes);
+  }));
 
   const daysWithData = weekData.filter(d=>d.total>0);
   const best = daysWithData.length > 0 ? daysWithData.reduce((a,b)=>a.prodRate>=b.prodRate?a:b) : null;
   const worst = daysWithData.length > 0 ? daysWithData.reduce((a,b)=>a.prodRate<=b.prodRate?a:b) : null;
 
   const S = { background:"#13152a", borderRadius:14, padding:"14px", marginBottom:10 };
-
-  if (weekTotal === 0) return (
-    <div style={{ ...S, textAlign:"center", color:"#3a4060", fontSize:13, padding:"40px 0" }}>
-      이번 주 기록이 없어요
-    </div>
-  );
+  const BAR_H = 140;
 
   return (
     <div>
-      <div style={S}>
-        <div style={{ fontSize:11, color:"#4a5270", letterSpacing:1, marginBottom:14 }}>이번 주 분석</div>
-
-        {/* 요일별 바 */}
-        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:90, marginBottom:8 }}>
-          {weekData.map((d, i) => {
-            const barH = d.total > 0 ? Math.max((d.total/maxTotal)*70, 6) : 0;
-            const color = d.prodRate >= 70 ? "#00C48C" : d.prodRate >= 40 ? "#FFB547" : d.total > 0 ? "#FF6B6B" : "#1e2038";
-            const isToday = d.date === todayKey();
-            return (
-              <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                <div style={{ width:"100%", height:70, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-                  <div style={{ width:"72%", height: barH||4, background: d.total>0?color:"#1e2038", borderRadius:4, opacity: d.total>0?1:0.3 }}/>
-                </div>
-                <span style={{ fontSize:10, color: isToday?"#4F7CFF":"#4a5270", fontWeight: isToday?700:400 }}>{d.label}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 주간 합계 */}
-        <div style={{ display:"flex", justifyContent:"space-around", padding:"12px 0", borderTop:"1px solid #1e2038", borderBottom:"1px solid #1e2038", marginBottom:14 }}>
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontSize:15, fontWeight:700, color:"#e8eaf6" }}>{Math.floor(weekTotal/60)}h {weekTotal%60}m</div>
-            <div style={{ fontSize:10, color:"#4a5270", marginTop:2 }}>총 기록</div>
-          </div>
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontSize:15, fontWeight:700, color:"#00C48C" }}>{Math.floor(weekProd/60)}h {weekProd%60}m</div>
-            <div style={{ fontSize:10, color:"#4a5270", marginTop:2 }}>생산</div>
-          </div>
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontSize:15, fontWeight:700, color:"#4F7CFF" }}>{weekTotal>0?Math.round(weekProd/weekTotal*100):0}%</div>
-            <div style={{ fontSize:10, color:"#4a5270", marginTop:2 }}>생산률</div>
-          </div>
-        </div>
-
-        {/* 카테고리별 */}
-        <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:11, color:"#4a5270", marginBottom:10 }}>카테고리별</div>
-          {catTotals.slice(0,5).map(cat => {
-            const pct = weekTotal>0?cat.minutes/weekTotal*100:0;
-            return (
-              <div key={cat.id} style={{ marginBottom:8 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                  <span style={{ fontSize:11, color:"#c8d0e8" }}>{cat.emoji} {cat.label}</span>
-                  <span style={{ fontSize:11, color:cat.color, fontWeight:600 }}>{Math.floor(cat.minutes/60)}h {cat.minutes%60}m</span>
-                </div>
-                <div style={{ height:4, background:"#1e2038", borderRadius:4 }}>
-                  <div style={{ height:4, width:`${pct}%`, background:cat.color, borderRadius:4 }}/>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 베스트/워스트 */}
-        {daysWithData.length > 0 && (
-          <div style={{ display:"flex", gap:8 }}>
-            {best && (
-              <div style={{ flex:1, background:"#00C48C11", borderRadius:10, padding:"10px 12px" }}>
-                <div style={{ fontSize:10, color:"#00C48C", marginBottom:4 }}>🏆 베스트</div>
-                <div style={{ fontSize:13, fontWeight:700, color:"#e8eaf6" }}>{best.label}요일</div>
-                <div style={{ fontSize:11, color:"#4a5270" }}>생산률 {Math.round(best.prodRate)}%</div>
-              </div>
-            )}
-            {worst && best?.date !== worst?.date && (
-              <div style={{ flex:1, background:"#FF6B6B11", borderRadius:10, padding:"10px 12px" }}>
-                <div style={{ fontSize:10, color:"#FF6B6B", marginBottom:4 }}>💧 아쉬운 날</div>
-                <div style={{ fontSize:13, fontWeight:700, color:"#e8eaf6" }}>{worst.label}요일</div>
-                <div style={{ fontSize:11, color:"#4a5270" }}>생산률 {Math.round(worst.prodRate)}%</div>
-              </div>
-            )}
-          </div>
-        )}
+      {/* 주 네비게이션 */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+        <button onClick={()=>setWeekOffset(w=>w-1)} style={{ background:"#1e2038", border:"none", color:"#8892b0", padding:"6px 16px", borderRadius:8, cursor:"pointer", fontSize:18, lineHeight:1 }}>‹</button>
+        <div style={{ fontSize:13, fontWeight:700, color:"#e8eaf6" }}>{weekLabel} ({rangeLabel})</div>
+        <button onClick={()=>setWeekOffset(w=>w+1)} disabled={isCurrentWeek} style={{ background:"#1e2038", border:"none", color: isCurrentWeek?"#2a2e4a":"#8892b0", padding:"6px 16px", borderRadius:8, cursor: isCurrentWeek?"default":"pointer", fontSize:18, lineHeight:1 }}>›</button>
       </div>
+
+      {weekTotal === 0 ? (
+        <div style={{ ...S, textAlign:"center", color:"#3a4060", fontSize:13, padding:"40px 0" }}>
+          이 주에 기록이 없어요
+        </div>
+      ) : (
+        <>
+          {/* 누적 막대 차트 */}
+          <div style={S}>
+            {/* 범례 */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 12px", marginBottom:12 }}>
+              {CATEGORIES.map(cat => (
+                <div key={cat.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                  <div style={{ width:8, height:8, borderRadius:2, background:cat.color }}/>
+                  <span style={{ fontSize:9, color:"#8892b0" }}>{cat.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* 차트 */}
+            <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_H+20, position:"relative" }}>
+              {weekData.map((d, i) => {
+                const barH = d.total > 0 ? Math.max((d.total/maxTotal)*(BAR_H-10), 8) : 0;
+                const isToday = d.date === todayKey();
+                return (
+                  <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-end", height:"100%" }}>
+                    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:1, marginBottom:4, height:barH, justifyContent:"flex-end" }}>
+                      {CATEGORIES.map(cat => {
+                        const catH = d.total > 0 ? (d.catMins[cat.id]/maxTotal)*(BAR_H-10) : 0;
+                        if (catH < 1) return null;
+                        return (
+                          <div key={cat.id} style={{ width:"100%", height:catH, background: cat.id==="waste" ? cat.color+"99" : cat.color, borderRadius:2, flexShrink:0 }}/>
+                        );
+                      }).reverse()}
+                    </div>
+                    <span style={{ fontSize:10, color: isToday?"#4F7CFF":"#4a5270", fontWeight: isToday?700:400 }}>{d.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 주간 합계 */}
+            <div style={{ display:"flex", justifyContent:"space-around", padding:"12px 0", borderTop:"1px solid #1e2038", marginTop:8 }}>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf6" }}>{Math.floor(weekTotal/60)}h {weekTotal%60}m</div>
+                <div style={{ fontSize:9, color:"#4a5270", marginTop:2 }}>총 기록</div>
+              </div>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:14, fontWeight:700, color:"#00C48C" }}>{Math.floor(weekProd/60)}h {weekProd%60}m</div>
+                <div style={{ fontSize:9, color:"#4a5270", marginTop:2 }}>생산</div>
+              </div>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:14, fontWeight:700, color:"#4F7CFF" }}>{weekTotal>0?Math.round(weekProd/weekTotal*100):0}%</div>
+                <div style={{ fontSize:9, color:"#4a5270", marginTop:2 }}>생산률</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 이번 주 목표 */}
+          <div style={S}>
+            <div style={{ fontSize:10, color:"#4a5270", letterSpacing:1, marginBottom:10 }}>이번 주 목표</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {weekDays.map((date, i) => {
+                const hl = highlights[date];
+                const isToday = date === todayKey();
+                const isPast = date < todayKey();
+                return (
+                  <div key={date} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ fontSize:10, color: isToday?"#4F7CFF":"#4a5270", fontWeight: isToday?700:400, width:14, flexShrink:0 }}>{DAY_LABELS[i]}</div>
+                    <div style={{ flex:1, fontSize:11, color: !hl ? "#2a2e4a" : hl.done ? "#c8d0e8" : isPast ? "#4a5270" : "#c8d0e8", textDecoration: hl && !hl.done && isPast ? "line-through" : "none" }}>
+                      {hl?.text || "—"}
+                    </div>
+                    {hl && (
+                      <div style={{ fontSize:10, fontWeight:700, color: hl.done ? "#00C48C" : "#4a5270", flexShrink:0 }}>
+                        {hl.done ? "✓" : "✗"}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* 달성률 */}
+            {(() => {
+              const hlDays = weekDays.filter(d => highlights[d]);
+              const doneDays = hlDays.filter(d => highlights[d]?.done);
+              if (hlDays.length === 0) return null;
+              const pct = Math.round(doneDays.length / hlDays.length * 100);
+              return (
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:12, paddingTop:10, borderTop:"1px solid #1e2038" }}>
+                  <div style={{ fontSize:10, color:"#4a5270" }}>달성률</div>
+                  <div style={{ fontSize:13, fontWeight:700, color: pct>=70?"#00C48C":pct>=40?"#FFD93D":"#FF6B6B" }}>
+                    {doneDays.length}/{hlDays.length} <span style={{ fontSize:10, color:"#4a5270", fontWeight:400 }}>{pct}%</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+        </>
+      )}
     </div>
   );
 }
@@ -237,6 +302,7 @@ function WeeklyReport({ records, notes }) {
 export default function App() {
   const [records, setRecords] = useState(SAMPLE_RECORDS);
   const [notes, setNotes] = useState(SAMPLE_NOTES);
+  const [highlights, setHighlights] = useState(SAMPLE_HIGHLIGHTS);
   const [historyDates, setHistoryDates] = useState(Object.keys(SAMPLE_RECORDS).sort((a,b)=>b.localeCompare(a)));
   const [isSample, setIsSample] = useState(true);
   const [viewDate, setViewDate] = useState(todayKey());
@@ -255,9 +321,12 @@ export default function App() {
       const r = localStorage.getItem("sigyebu_records_v1");
       const h = localStorage.getItem("sigyebu_hist_v1");
       const n = localStorage.getItem("sigyebu_notes_v1");
+      const hl = localStorage.getItem("sigyebu_highlights_v1");
       if (r) { setRecords(JSON.parse(r)); setIsSample(false); }
       if (h) setHistoryDates(JSON.parse(h));
       if (n) setNotes(JSON.parse(n));
+      if (hl) setHighlights(JSON.parse(hl));
+      else if (r) setHighlights({});
     } catch {}
   }, []);
 
@@ -267,6 +336,12 @@ export default function App() {
     try { if (hist !== undefined) localStorage.setItem("sigyebu_hist_v1", JSON.stringify(hist)); } catch {}
     try { if (nts !== undefined) localStorage.setItem("sigyebu_notes_v1", JSON.stringify(nts)); } catch {}
   }, []);
+
+  const saveHighlight = useCallback((date, text, done) => {
+    const newHl = { ...highlights, [date]: { text, done } };
+    setHighlights(newHl);
+    try { localStorage.setItem("sigyebu_highlights_v1", JSON.stringify(newHl)); } catch {}
+  }, [highlights]);
 
   // 날짜 이동
   const goDate = (n) => {
@@ -313,6 +388,7 @@ export default function App() {
       exportedAt: new Date().toISOString(),
       records: isSample ? {} : records,
       notes: isSample ? {} : notes,
+      highlights: highlights,
       historyDates: isSample ? [] : historyDates,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" });
@@ -334,6 +410,7 @@ export default function App() {
         const data = JSON.parse(ev.target.result);
         if (data.records) { setRecords(data.records); localStorage.setItem("sigyebu_records_v1", JSON.stringify(data.records)); }
         if (data.notes) { setNotes(data.notes); localStorage.setItem("sigyebu_notes_v1", JSON.stringify(data.notes)); }
+        if (data.highlights) { setHighlights(data.highlights); localStorage.setItem("sigyebu_highlights_v1", JSON.stringify(data.highlights)); }
         if (data.historyDates) { setHistoryDates(data.historyDates); localStorage.setItem("sigyebu_hist_v1", JSON.stringify(data.historyDates)); }
         setIsSample(false);
         alert("복원 완료!");
@@ -417,7 +494,34 @@ export default function App() {
             <button onClick={()=>goDate(1)} style={{ background:"#1e2038", border:"none", color: viewDate>=todayKey()?"#2a2e4a":"#8892b0", padding:"6px 16px", borderRadius:8, cursor:"pointer", fontSize:20, lineHeight:1 }}>›</button>
           </div>
 
-          {/* 입력 */}
+          {/* 오늘의 목표 — 독립 영역 */}
+          {(() => {
+            const hlData = isSample ? SAMPLE_HIGHLIGHTS : highlights;
+            const hl = hlData[viewDate];
+            return (
+              <div style={{ background:"#FFD93D18", border:"1.5px solid #FFD93D", borderRadius:12, padding:"10px 13px", marginBottom:10 }}>
+                <div style={{ fontSize:9, color:"#FFD93D", letterSpacing:1, marginBottom:6 }}>★ 오늘의 목표</div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <input
+                    placeholder="오늘 반드시 할 것 1가지"
+                    value={hl?.text || ""}
+                    onChange={e => saveHighlight(viewDate, e.target.value, hl?.done || false)}
+                    style={{ flex:1, background:"#0d1228", border:"none", borderRadius:8, padding:"8px 10px", color:"#e8eaf6", fontSize:12, outline:"none" }}
+                  />
+                  <div
+                    onClick={() => saveHighlight(viewDate, hl?.text || "", !hl?.done)}
+                    style={{ width:26, height:26, borderRadius:7, border: hl?.done ? "none" : "1.5px solid #FFD93D", background: hl?.done ? "#FFD93D" : "transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}
+                  >
+                    {hl?.done && <svg width="13" height="13" viewBox="0 0 13 13"><polyline points="2,7 5,10 11,3" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div style={{ height:1, background:"#1e2038", marginBottom:12 }}/>
+
+          {/* 기록 입력 */}
           <div style={S}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:12 }}>
               {CATEGORIES.map(cat => (
@@ -444,53 +548,28 @@ export default function App() {
               style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"none", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none" }}/>
           </div>
 
-          {/* 차트 */}
+          {/* 차트 — 막대만 */}
           <div style={S}>
-            <div style={{ display:"flex", background:"#0d0f1e", borderRadius:10, padding:3, width:"fit-content", margin:"0 auto 14px" }}>
-              {[["donut","도넛"],["bar","막대"]].map(([mode,label]) => (
-                <button key={mode} onClick={()=>setChartMode(mode)} style={{
-                  padding:"5px 18px", borderRadius:8, border:"none", cursor:"pointer", fontSize:12,
-                  background: chartMode===mode?"#1e2038":"none",
-                  color: chartMode===mode?"#e8eaf6":"#4a5270",
-                  fontWeight: chartMode===mode?600:400
-                }}>{label}</button>
-              ))}
-            </div>
-            {chartMode==="donut" ? (
-              <>
-                <DonutChart data={categoryTotals} size={160}/>
-                {activeCats.length>0 && (
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 12px", marginTop:14, justifyContent:"center" }}>
-                    {activeCats.map(cat => (
-                      <div key={cat.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                        <div style={{ width:7, height:7, borderRadius:"50%", background:cat.color }}/>
-                        <span style={{ fontSize:10, color:"#8892b0" }}>{cat.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              activeCats.length===0
-                ? <div style={{ textAlign:"center", color:"#3a4060", fontSize:13, padding:"20px 0" }}>아직 기록이 없어요</div>
-                : activeCats.sort((a,b)=>b.minutes-a.minutes).map(cat => {
-                  const pct = totalMin>0?cat.minutes/totalMin*100:0;
-                  return (
-                    <div key={cat.id} style={{ marginBottom:10 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                        <span style={{ fontSize:11, color:"#c8d0e8" }}>{cat.emoji} {cat.label}</span>
-                        <span style={{ fontSize:11, color:cat.color, fontWeight:600 }}>
-                          {Math.floor(cat.minutes/60)>0?`${Math.floor(cat.minutes/60)}h `:""}{cat.minutes%60}m
-                          <span style={{ color:"#4a5270", fontWeight:400, marginLeft:4 }}>{pct.toFixed(0)}%</span>
-                        </span>
-                      </div>
-                      <div style={{ height:5, background:"#1e2038", borderRadius:4 }}>
-                        <div style={{ height:5, width:`${pct}%`, background:cat.color, borderRadius:4 }}/>
-                      </div>
+            {activeCats.length===0
+              ? <div style={{ textAlign:"center", color:"#3a4060", fontSize:13, padding:"20px 0" }}>아직 기록이 없어요</div>
+              : activeCats.sort((a,b)=>b.minutes-a.minutes).map(cat => {
+                const pct = totalMin>0?cat.minutes/totalMin*100:0;
+                return (
+                  <div key={cat.id} style={{ marginBottom:10 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                      <span style={{ fontSize:11, color:"#c8d0e8" }}>{cat.emoji} {cat.label}</span>
+                      <span style={{ fontSize:11, color:cat.color, fontWeight:600 }}>
+                        {Math.floor(cat.minutes/60)>0?`${Math.floor(cat.minutes/60)}h `:""}{cat.minutes%60}m
+                        <span style={{ color:"#4a5270", fontWeight:400, marginLeft:4 }}>{pct.toFixed(0)}%</span>
+                      </span>
                     </div>
-                  );
-                })
-            )}
+                    <div style={{ height:5, background:"#1e2038", borderRadius:4 }}>
+                      <div style={{ height:5, width:`${pct}%`, background:cat.color, borderRadius:4 }}/>
+                    </div>
+                  </div>
+                );
+              })
+            }
             {totalMin>0 && (
               <div style={{ display:"flex", justifyContent:"space-around", marginTop:16, paddingTop:14, borderTop:"1px solid #1e2038" }}>
                 {typeStats.map(t => (
@@ -612,7 +691,7 @@ export default function App() {
               })}
             </div>
             <div style={{ display:"flex", justifyContent:"center", gap:14, marginTop:12 }}>
-              {[["#00C48C","70%+"],["#FFB547","40~69%"],["#FF6B6B","~39%"]].map(([c,l]) => (
+              {[["#00C48C","70%+"],["#FFD93D","40~69%"],["#FF6B6B","~39%"]].map(([c,l]) => (
                 <div key={l} style={{ display:"flex", alignItems:"center", gap:4 }}>
                   <div style={{ width:7, height:7, borderRadius:"50%", background:c }}/>
                   <span style={{ fontSize:10, color:"#4a5270" }}>{l}</span>
@@ -631,26 +710,40 @@ export default function App() {
                 <div style={{ ...S, textAlign:"center", color:"#3a4060", fontSize:13 }}>기록이 없어요</div>
               ) : (
                 <>
-                  <div style={S}>
-                    <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-                      <DonutChart data={histCatTotals} size={100}/>
-                      <div style={{ flex:1 }}>
-                        {histCatTotals.filter(c=>c.minutes>0).map(cat => {
-                          const tot = histRecs.reduce((s,r)=>s+r.min, 0);
-                          const pct = tot>0?cat.minutes/tot*100:0;
-                          return (
-                            <div key={cat.id} style={{ marginBottom:6 }}>
-                              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
-                                <span style={{ fontSize:10, color:"#8892b0" }}>{cat.emoji} {cat.label}</span>
-                                <span style={{ fontSize:10, color:cat.color, fontWeight:600 }}>{Math.floor(cat.minutes/60)>0?`${Math.floor(cat.minutes/60)}h `:""}{cat.minutes%60}m</span>
-                              </div>
-                              <div style={{ height:3, background:"#1e2038", borderRadius:3 }}>
-                                <div style={{ height:3, width:`${pct}%`, background:cat.color, borderRadius:3 }}/>
-                              </div>
-                            </div>
-                          );
-                        })}
+                  {/* 오늘의 목표 */}
+                  {(() => {
+                    const hl = (isSample ? SAMPLE_HIGHLIGHTS : highlights)[selectedHistDate];
+                    return hl ? (
+                      <div style={{ background:"#FFD93D18", border:"1.5px solid #FFD93D", borderRadius:12, padding:"12px 14px", marginBottom:12 }}>
+                        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                          <div style={{ fontSize:9, color:"#FFD93D", letterSpacing:1, fontWeight:700 }}>★ 오늘의 목표</div>
+                          <div style={{ fontSize:10, fontWeight:700, color: hl.done ? "#00C48C" : "#4a5270" }}>
+                            {hl.done ? "✓ 완료" : "미완료"}
+                          </div>
+                        </div>
+                        <div style={{ fontSize:13, fontWeight:700, color:"#e8eaf6" }}>{hl.text || "—"}</div>
                       </div>
+                    ) : null;
+                  })()}
+
+                  {/* 가로 시간 블록 바 */}
+                  <div style={{ marginBottom:10 }}>
+                    <div style={{ display:"flex", borderRadius:8, overflow:"hidden", height:18 }}>
+                      {(() => {
+                        const total = histRecs.reduce((s,r)=>s+r.min, 0);
+                        return histCatTotals.filter(c=>c.minutes>0).sort((a,b)=>b.minutes-a.minutes).map(cat => (
+                          <div key={cat.id} style={{ width:`${cat.minutes/total*100}%`, background: cat.id==="waste" ? cat.color+"bb" : cat.color, flexShrink:0 }} title={`${cat.label} ${cat.minutes}m`}/>
+                        ));
+                      })()}
+                    </div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:"4px 10px", marginTop:6 }}>
+                      {histCatTotals.filter(c=>c.minutes>0).sort((a,b)=>b.minutes-a.minutes).map(cat => (
+                        <div key={cat.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                          <div style={{ width:7, height:7, borderRadius:2, background:cat.color }}/>
+                          <span style={{ fontSize:10, color:"#8892b0" }}>{cat.emoji} {cat.label}</span>
+                          <span style={{ fontSize:10, color:cat.color, fontWeight:600 }}>{Math.floor(cat.minutes/60)>0?`${Math.floor(cat.minutes/60)}h `:""}{cat.minutes%60}m</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <div style={S}>
@@ -698,7 +791,7 @@ export default function App() {
       {/* ── 주간 탭 ── */}
       {view==="weekly" && (
         <div style={{ padding:"14px 16px 0" }}>
-          <WeeklyReport records={isSample ? SAMPLE_RECORDS : records} notes={isSample ? SAMPLE_NOTES : notes} />
+          <WeeklyReport records={isSample ? SAMPLE_RECORDS : records} notes={isSample ? SAMPLE_NOTES : notes} highlights={isSample ? SAMPLE_HIGHLIGHTS : highlights} />
         </div>
       )}
 
