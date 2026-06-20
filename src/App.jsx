@@ -65,6 +65,30 @@ function formatDate(dateStr) {
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${["일","월","화","수","목","금","토"][d.getDay()]})`;
 }
 
+// ── 시간대 블록 (오전/오후/저녁) ────────────────────────
+const BLOCKS = [
+  { id: "morning",   label: "오전", range: "05:00–12:00" },
+  { id: "afternoon", label: "오후", range: "12:00–18:00" },
+  { id: "evening",   label: "저녁", range: "18:00–05:00" },
+];
+
+function getBlock(time) {
+  if (!time) return "evening";
+  const h = parseInt(time.split(":")[0], 10);
+  if (h >= 5 && h < 12) return "morning";
+  if (h >= 12 && h < 18) return "afternoon";
+  return "evening";
+}
+
+// idx를 보존한 채로 레코드를 오전/오후/저녁으로 묶어줌 (delete 등에서 원본 인덱스 필요할 때 사용)
+function groupByBlock(records) {
+  const groups = { morning: [], afternoon: [], evening: [] };
+  records.forEach((r, idx) => {
+    groups[getBlock(r.time)].push({ ...r, idx });
+  });
+  return groups;
+}
+
 function getProductivityColor(recs) {
   if (!recs || recs.length === 0) return null;
   const total = recs.reduce((s,r) => s+r.min, 0);
@@ -596,29 +620,48 @@ export default function App() {
                 </div>
               )}
               <div style={{ fontSize:11, color:"#4a5270", marginBottom:10, letterSpacing:1 }}>LOG</div>
-              {[...activeRecords].reverse().map((r, i) => {
-                const cat = CATEGORIES.find(c=>c.id===r.cat);
-                const realIdx = activeRecords.length-1-i;
-                return (
-                  <div key={i} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"9px 0", borderBottom:i<activeRecords.length-1?"1px solid #1e2038":"none" }}>
-                    <div style={{ display:"flex", alignItems:"flex-start", gap:8, flex:1 }}>
-                      <div style={{ width:32, height:32, borderRadius:9, background:cat?.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{cat?.emoji}</div>
-                      <div>
-                        <div style={{ fontSize:12, color:"#c8d0e8", fontWeight:500 }}>{cat?.label}</div>
-                        {r.memo && <div style={{ fontSize:11, color:"#4a5270", marginTop:1 }}>{r.memo}</div>}
-                        {r.output && <div style={{ fontSize:11, color:"#00C48C", marginTop:2 }}>✓ {r.output}</div>}
+              {(() => {
+                const groups = groupByBlock(activeRecords);
+                const visibleBlocks = BLOCKS.filter(b => groups[b.id].length > 0);
+                return visibleBlocks.map((block, bi) => {
+                  const items = groups[block.id];
+                  const blockTotal = items.reduce((s,r)=>s+r.min, 0);
+                  return (
+                    <div key={block.id} style={{ marginBottom: bi<visibleBlocks.length-1 ? 16 : 0 }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:"#6b7299", letterSpacing:1 }}>
+                          {block.label} <span style={{ fontWeight:400, color:"#3a4060", marginLeft:4 }}>{block.range}</span>
+                        </span>
+                        <span style={{ fontSize:11, color:"#8892b0", fontWeight:600 }}>
+                          {Math.floor(blockTotal/60)>0?`${Math.floor(blockTotal/60)}h `:""}{blockTotal%60}m
+                        </span>
                       </div>
+                      {[...items].reverse().map((r, i) => {
+                        const cat = CATEGORIES.find(c=>c.id===r.cat);
+                        return (
+                          <div key={r.idx} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"9px 0", borderBottom:i<items.length-1?"1px solid #1e2038":"none" }}>
+                            <div style={{ display:"flex", alignItems:"flex-start", gap:8, flex:1 }}>
+                              <div style={{ width:32, height:32, borderRadius:9, background:cat?.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{cat?.emoji}</div>
+                              <div>
+                                <div style={{ fontSize:12, color:"#c8d0e8", fontWeight:500 }}>{cat?.label}</div>
+                                {r.memo && <div style={{ fontSize:11, color:"#4a5270", marginTop:1 }}>{r.memo}</div>}
+                                {r.output && <div style={{ fontSize:11, color:"#00C48C", marginTop:2 }}>✓ {r.output}</div>}
+                              </div>
+                            </div>
+                            <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                              <div style={{ textAlign:"right" }}>
+                                <div style={{ fontSize:12, color:cat?.color, fontWeight:700 }}>{Math.floor(r.min/60)>0?`${Math.floor(r.min/60)}h `:""}{r.min%60}m</div>
+                                <div style={{ fontSize:10, color:"#3a4060" }}>{r.time}</div>
+                              </div>
+                              <button onClick={()=>deleteRecord(r.idx)} style={{ background:"none", border:"none", color:"#3a4060", cursor:"pointer", fontSize:16, padding:"0 4px" }}>×</button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-                      <div style={{ textAlign:"right" }}>
-                        <div style={{ fontSize:12, color:cat?.color, fontWeight:700 }}>{Math.floor(r.min/60)>0?`${Math.floor(r.min/60)}h `:""}{r.min%60}m</div>
-                        <div style={{ fontSize:10, color:"#3a4060" }}>{r.time}</div>
-                      </div>
-                      <button onClick={()=>deleteRecord(realIdx)} style={{ background:"none", border:"none", color:"#3a4060", cursor:"pointer", fontSize:16, padding:"0 4px" }}>×</button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           )}
 
@@ -758,22 +801,39 @@ export default function App() {
                       </div>
                     )}
                     <div style={{ fontSize:11, color:"#4a5270", marginBottom:8, letterSpacing:1 }}>LOG</div>
-                    {histRecs.map((r,i) => {
-                      const cat = CATEGORIES.find(c=>c.id===r.cat);
-                      return (
-                        <div key={i} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"8px 0", borderBottom:i<histRecs.length-1?"1px solid #1e2038":"none" }}>
-                          <div style={{ display:"flex", alignItems:"flex-start", gap:8, flex:1 }}>
-                            <div style={{ width:28, height:28, borderRadius:8, background:cat?.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, flexShrink:0 }}>{cat?.emoji}</div>
-                            <div>
-                              <div style={{ fontSize:12, color:"#c8d0e8", fontWeight:500 }}>{cat?.label}</div>
-                              {r.memo && <div style={{ fontSize:11, color:"#4a5270", marginTop:1 }}>{r.memo}</div>}
-                              {r.output && <div style={{ fontSize:11, color:"#00C48C", marginTop:1 }}>✓ {r.output}</div>}
+                    {(() => {
+                      const groups = groupByBlock(histRecs);
+                      const visibleBlocks = BLOCKS.filter(b => groups[b.id].length > 0);
+                      return visibleBlocks.map((block, bi) => {
+                        const items = groups[block.id];
+                        const blockTotal = items.reduce((s,r)=>s+r.min, 0);
+                        return (
+                          <div key={block.id} style={{ marginBottom: bi<visibleBlocks.length-1 ? 14 : 0 }}>
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                              <span style={{ fontSize:10, fontWeight:700, color:"#6b7299", letterSpacing:1 }}>
+                                {block.label} <span style={{ fontWeight:400, color:"#3a4060", marginLeft:4 }}>{block.range}</span>
+                              </span>
+                              <span style={{ fontSize:10, color:"#8892b0", fontWeight:600 }}>
+                                {Math.floor(blockTotal/60)>0?`${Math.floor(blockTotal/60)}h `:""}{blockTotal%60}m
+                              </span>
                             </div>
+                            {[...items].reverse().map((r, i) => (
+                              <div key={r.idx} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"8px 0", borderBottom:i<items.length-1?"1px solid #1e2038":"none" }}>
+                                <div style={{ display:"flex", alignItems:"flex-start", gap:8, flex:1 }}>
+                                  <div style={{ width:28, height:28, borderRadius:8, background:CATEGORIES.find(c=>c.id===r.cat)?.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, flexShrink:0 }}>{CATEGORIES.find(c=>c.id===r.cat)?.emoji}</div>
+                                  <div>
+                                    <div style={{ fontSize:12, color:"#c8d0e8", fontWeight:500 }}>{CATEGORIES.find(c=>c.id===r.cat)?.label}</div>
+                                    {r.memo && <div style={{ fontSize:11, color:"#4a5270", marginTop:1 }}>{r.memo}</div>}
+                                    {r.output && <div style={{ fontSize:11, color:"#00C48C", marginTop:1 }}>✓ {r.output}</div>}
+                                  </div>
+                                </div>
+                                <span style={{ fontSize:12, color:CATEGORIES.find(c=>c.id===r.cat)?.color, fontWeight:700, flexShrink:0 }}>{Math.floor(r.min/60)>0?`${Math.floor(r.min/60)}h `:""}{r.min%60}m</span>
+                              </div>
+                            ))}
                           </div>
-                          <span style={{ fontSize:12, color:cat?.color, fontWeight:700, flexShrink:0 }}>{Math.floor(r.min/60)>0?`${Math.floor(r.min/60)}h `:""}{r.min%60}m</span>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                   {histNote && (
                     <div style={{ ...S, marginBottom:20 }}>
