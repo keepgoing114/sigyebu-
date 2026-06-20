@@ -332,6 +332,14 @@ export default function App() {
   const [viewDate, setViewDate] = useState(todayKey());
   const [selCat, setSelCat] = useState(CATEGORIES[0].id);
   const [inputMin, setInputMin] = useState("");
+  const [inputTime, setInputTime] = useState(() => new Date().toTimeString().slice(0,5));
+  const [showTimeEdit, setShowTimeEdit] = useState(false);
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editCat, setEditCat] = useState("");
+  const [editMin, setEditMin] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [editMemo, setEditMemo] = useState("");
+  const [editOutput, setEditOutput] = useState("");
   const [memo, setMemo] = useState("");
   const [output, setOutput] = useState("");
   const [view, setView] = useState("today");
@@ -378,7 +386,7 @@ export default function App() {
     const min = parseInt(inputMin);
     if (!min || min <= 0) return;
     const date = viewDate;
-    const newRec = { cat: selCat, min, memo, output, time: new Date().toTimeString().slice(0,5) };
+    const newRec = { cat: selCat, min, memo, output, time: inputTime || new Date().toTimeString().slice(0,5) };
     const baseRec = isSample ? {} : records;
     const newRecords = { ...baseRec, [date]: [...(baseRec[date]||[]), newRec] };
     const baseHist = isSample ? [] : historyDates.filter(d => !Object.keys(SAMPLE_RECORDS).includes(d));
@@ -387,6 +395,8 @@ export default function App() {
     setHistoryDates(newHist);
     save(newRecords, newHist);
     setInputMin(""); setMemo(""); setOutput("");
+    setInputTime(new Date().toTimeString().slice(0,5)); // 다음 입력을 위해 현재 시각으로 리셋
+    setShowTimeEdit(false);
   };
 
   // 기록 삭제
@@ -395,6 +405,27 @@ export default function App() {
     const newRecords = { ...(isSample ? {} : records), [viewDate]: cur.filter((_,i)=>i!==idx) };
     setRecords(newRecords);
     save(newRecords);
+  };
+
+  // 기록 수정
+  const startEdit = (idx, r) => {
+    setEditingIdx(idx);
+    setEditCat(r.cat);
+    setEditMin(String(r.min));
+    setEditTime(r.time || new Date().toTimeString().slice(0,5));
+    setEditMemo(r.memo || "");
+    setEditOutput(r.output || "");
+  };
+  const cancelEdit = () => setEditingIdx(null);
+  const saveEdit = () => {
+    const min = parseInt(editMin);
+    if (!min || min <= 0) return;
+    const cur = isSample ? [] : (records[viewDate]||[]);
+    const updated = cur.map((r,i) => i===editingIdx ? { cat:editCat, min, memo:editMemo, output:editOutput, time:editTime } : r);
+    const newRecords = { ...(isSample ? {} : records), [viewDate]: updated };
+    setRecords(newRecords);
+    save(newRecords);
+    setEditingIdx(null);
   };
 
   // 메모 저장
@@ -558,13 +589,38 @@ export default function App() {
                 }}>{cat.emoji}<br/>{cat.label}</button>
               ))}
             </div>
-            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-              <input type="number" placeholder="몇 분?" value={inputMin}
+
+            {/* 메인 액션: 몇 분 + 기록 버튼 (제일 자주 쓰는 동작이라 크고 단순하게) */}
+            <div style={{ display:"flex", gap:8, marginBottom:6 }}>
+              <input type="number" inputMode="numeric" placeholder="몇 분?" value={inputMin}
                 onChange={e=>setInputMin(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&addRecord()}
-                style={{ flex:1, background:"#1e2038", border:"none", borderRadius:10, padding:"11px 14px", color:"#e8eaf6", fontSize:14, outline:"none" }}/>
-              <button onClick={addRecord} style={{ background:"#4F7CFF", border:"none", borderRadius:10, padding:"11px 22px", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>기록</button>
+                style={{ flex:1, minWidth:0, background:"#1e2038", border:"none", borderRadius:10, padding:"13px 16px", color:"#e8eaf6", fontSize:16, fontWeight:600, outline:"none" }}/>
+              <button onClick={addRecord} style={{ background:"#4F7CFF", border:"none", borderRadius:10, padding:"13px 24px", color:"#fff", fontSize:15, fontWeight:800, cursor:"pointer", flexShrink:0 }}>기록</button>
             </div>
+            <style>{`input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }`}</style>
+
+            {/* 시각: 평소엔 작은 텍스트, 사후 입력일 때만 펼쳐서 수정 */}
+            {!showTimeEdit ? (
+              <button onClick={()=>setShowTimeEdit(true)} style={{ background:"none", border:"none", color:"#4a5270", fontSize:11, cursor:"pointer", padding:"0 0 10px", display:"flex", alignItems:"center", gap:5 }}>
+                🕐 {inputTime}에 기록돼요 <span style={{ color:"#6b7299", textDecoration:"underline" }}>시간 바꾸기</span>
+              </button>
+            ) : (
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, background:"#1e2038", borderRadius:10, padding:"6px 10px" }}>
+                <span style={{ fontSize:11, color:"#6b7299", flexShrink:0 }}>🕐 시각</span>
+                <select value={inputTime.split(":")[0]} onChange={e=>setInputTime(`${e.target.value}:${inputTime.split(":")[1]}`)}
+                  style={{ background:"#13152a", border:"none", borderRadius:8, padding:"6px 2px", color:"#e8eaf6", fontSize:13, outline:"none", textAlign:"center", width:42 }}>
+                  {Array.from({length:24},(_,i)=>String(i).padStart(2,"0")).map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <span style={{ color:"#3a4060" }}>:</span>
+                <select value={inputTime.split(":")[1]} onChange={e=>setInputTime(`${inputTime.split(":")[0]}:${e.target.value}`)}
+                  style={{ background:"#13152a", border:"none", borderRadius:8, padding:"6px 2px", color:"#e8eaf6", fontSize:13, outline:"none", textAlign:"center", width:42 }}>
+                  {Array.from({length:60},(_,i)=>String(i).padStart(2,"0")).map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <button onClick={()=>setShowTimeEdit(false)} style={{ marginLeft:"auto", background:"none", border:"none", color:"#4F7CFF", fontSize:11, fontWeight:700, cursor:"pointer", flexShrink:0 }}>완료</button>
+              </div>
+            )}
+
             <input placeholder="메모 (선택)" value={memo} onChange={e=>setMemo(e.target.value)}
               style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"none", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none", marginBottom:8 }}/>
             <input placeholder="결과물 (선택)" value={output} onChange={e=>setOutput(e.target.value)}
@@ -638,8 +694,36 @@ export default function App() {
                       </div>
                       {[...items].reverse().map((r, i) => {
                         const cat = CATEGORIES.find(c=>c.id===r.cat);
+                        const isEditing = r.idx === editingIdx;
+                        if (isEditing) {
+                          return (
+                            <div key={r.idx} style={{ padding:"10px 0", borderBottom:i<items.length-1?"1px solid #1e2038":"none" }}>
+                              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:4, marginBottom:6 }}>
+                                {CATEGORIES.map(c => (
+                                  <button key={c.id} onClick={()=>setEditCat(c.id)} style={{ padding:"5px 2px", borderRadius:7, fontSize:9, border:"none", cursor:"pointer", background: editCat===c.id?c.color:"#1e2038", color: editCat===c.id?"#fff":"#6b7299" }}>{c.emoji} {c.label}</button>
+                                ))}
+                              </div>
+                              <div style={{ display:"flex", gap:4, marginBottom:6, alignItems:"center" }}>
+                                <select value={editTime.split(":")[0]} onChange={e=>setEditTime(`${e.target.value}:${editTime.split(":")[1]}`)} style={{ width:42, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"6px 0", textAlign:"center", outline:"none" }}>
+                                  {Array.from({length:24},(_,i2)=>String(i2).padStart(2,"0")).map(h => <option key={h} value={h}>{h}</option>)}
+                                </select>
+                                <span style={{ color:"#3a4060", fontSize:11 }}>:</span>
+                                <select value={editTime.split(":")[1]} onChange={e=>setEditTime(`${editTime.split(":")[0]}:${e.target.value}`)} style={{ width:42, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"6px 0", textAlign:"center", outline:"none" }}>
+                                  {Array.from({length:60},(_,i2)=>String(i2).padStart(2,"0")).map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <input type="number" inputMode="numeric" value={editMin} onChange={e=>setEditMin(e.target.value)} placeholder="분" style={{ flex:1, minWidth:0, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:12, padding:"6px 8px", textAlign:"center", outline:"none" }}/>
+                              </div>
+                              <input value={editMemo} onChange={e=>setEditMemo(e.target.value)} placeholder="메모" style={{ width:"100%", boxSizing:"border-box", background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"7px 9px", marginBottom:4, outline:"none" }}/>
+                              <input value={editOutput} onChange={e=>setEditOutput(e.target.value)} placeholder="결과물" style={{ width:"100%", boxSizing:"border-box", background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"7px 9px", marginBottom:8, outline:"none" }}/>
+                              <div style={{ display:"flex", gap:6 }}>
+                                <button onClick={cancelEdit} style={{ flex:1, background:"#1e2038", border:"none", borderRadius:8, padding:"8px", color:"#8892b0", fontSize:11, fontWeight:600, cursor:"pointer" }}>취소</button>
+                                <button onClick={saveEdit} style={{ flex:1, background:"#4F7CFF", border:"none", borderRadius:8, padding:"8px", color:"#fff", fontSize:11, fontWeight:700, cursor:"pointer" }}>저장</button>
+                              </div>
+                            </div>
+                          );
+                        }
                         return (
-                          <div key={r.idx} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"9px 0", borderBottom:i<items.length-1?"1px solid #1e2038":"none" }}>
+                          <div key={r.idx} onClick={()=>startEdit(r.idx, r)} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"9px 0", borderBottom:i<items.length-1?"1px solid #1e2038":"none", cursor:"pointer" }}>
                             <div style={{ display:"flex", alignItems:"flex-start", gap:8, flex:1 }}>
                               <div style={{ width:32, height:32, borderRadius:9, background:cat?.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{cat?.emoji}</div>
                               <div>
@@ -653,7 +737,7 @@ export default function App() {
                                 <div style={{ fontSize:12, color:cat?.color, fontWeight:700 }}>{Math.floor(r.min/60)>0?`${Math.floor(r.min/60)}h `:""}{r.min%60}m</div>
                                 <div style={{ fontSize:10, color:"#3a4060" }}>{r.time}</div>
                               </div>
-                              <button onClick={()=>deleteRecord(r.idx)} style={{ background:"none", border:"none", color:"#3a4060", cursor:"pointer", fontSize:16, padding:"0 4px" }}>×</button>
+                              <button onClick={(e)=>{ e.stopPropagation(); deleteRecord(r.idx); }} style={{ background:"none", border:"none", color:"#3a4060", cursor:"pointer", fontSize:16, padding:"0 4px" }}>×</button>
                             </div>
                           </div>
                         );
