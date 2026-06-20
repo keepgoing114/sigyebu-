@@ -89,6 +89,21 @@ function groupByBlock(records) {
   return groups;
 }
 
+// 시작·종료 시각(HH:MM)으로 분(min) 자동 계산 — 자정을 넘기면 다음날로 처리
+function calcDuration(start, end) {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let mins = (eh*60+em) - (sh*60+sm);
+  if (mins <= 0) mins += 24*60;
+  return mins;
+}
+// 시작 시각 + 분(min) → 종료 시각(HH:MM) 역산 (기존 기록 수정할 때 사용)
+function addMinutesToTime(start, mins) {
+  const [h, m] = start.split(":").map(Number);
+  let total = ((h*60+m+mins) % (24*60) + 24*60) % (24*60);
+  return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
+}
+
 function getProductivityColor(recs) {
   if (!recs || recs.length === 0) return null;
   const total = recs.reduce((s,r) => s+r.min, 0);
@@ -331,13 +346,12 @@ export default function App() {
   const [isSample, setIsSample] = useState(true);
   const [viewDate, setViewDate] = useState(todayKey());
   const [selCat, setSelCat] = useState(CATEGORIES[0].id);
-  const [inputMin, setInputMin] = useState("");
-  const [inputTime, setInputTime] = useState(() => new Date().toTimeString().slice(0,5));
-  const [showTimeEdit, setShowTimeEdit] = useState(false);
+  const [inputStart, setInputStart] = useState(() => new Date().toTimeString().slice(0,5));
+  const [inputEnd, setInputEnd] = useState(() => new Date().toTimeString().slice(0,5));
   const [editingIdx, setEditingIdx] = useState(null);
   const [editCat, setEditCat] = useState("");
-  const [editMin, setEditMin] = useState("");
-  const [editTime, setEditTime] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
   const [editMemo, setEditMemo] = useState("");
   const [editOutput, setEditOutput] = useState("");
   const [memo, setMemo] = useState("");
@@ -383,10 +397,10 @@ export default function App() {
 
   // 기록 추가
   const addRecord = () => {
-    const min = parseInt(inputMin);
+    const min = calcDuration(inputStart, inputEnd);
     if (!min || min <= 0) return;
     const date = viewDate;
-    const newRec = { cat: selCat, min, memo, output, time: inputTime || new Date().toTimeString().slice(0,5) };
+    const newRec = { cat: selCat, min, memo, output, time: inputStart };
     const baseRec = isSample ? {} : records;
     const newRecords = { ...baseRec, [date]: [...(baseRec[date]||[]), newRec] };
     const baseHist = isSample ? [] : historyDates.filter(d => !Object.keys(SAMPLE_RECORDS).includes(d));
@@ -394,9 +408,9 @@ export default function App() {
     setRecords(newRecords);
     setHistoryDates(newHist);
     save(newRecords, newHist);
-    setInputMin(""); setMemo(""); setOutput("");
-    setInputTime(new Date().toTimeString().slice(0,5)); // 다음 입력을 위해 현재 시각으로 리셋
-    setShowTimeEdit(false);
+    setMemo(""); setOutput("");
+    const now = new Date().toTimeString().slice(0,5);
+    setInputStart(now); setInputEnd(now); // 다음 입력을 위해 현재 시각으로 리셋
   };
 
   // 기록 삭제
@@ -411,17 +425,18 @@ export default function App() {
   const startEdit = (idx, r) => {
     setEditingIdx(idx);
     setEditCat(r.cat);
-    setEditMin(String(r.min));
-    setEditTime(r.time || new Date().toTimeString().slice(0,5));
+    const start = r.time || new Date().toTimeString().slice(0,5);
+    setEditStart(start);
+    setEditEnd(addMinutesToTime(start, r.min));
     setEditMemo(r.memo || "");
     setEditOutput(r.output || "");
   };
   const cancelEdit = () => setEditingIdx(null);
   const saveEdit = () => {
-    const min = parseInt(editMin);
+    const min = calcDuration(editStart, editEnd);
     if (!min || min <= 0) return;
     const cur = isSample ? [] : (records[viewDate]||[]);
-    const updated = cur.map((r,i) => i===editingIdx ? { cat:editCat, min, memo:editMemo, output:editOutput, time:editTime } : r);
+    const updated = cur.map((r,i) => i===editingIdx ? { cat:editCat, min, memo:editMemo, output:editOutput, time:editStart } : r);
     const newRecords = { ...(isSample ? {} : records), [viewDate]: updated };
     setRecords(newRecords);
     save(newRecords);
@@ -590,36 +605,36 @@ export default function App() {
               ))}
             </div>
 
-            {/* 메인 액션: 몇 분 + 기록 버튼 (제일 자주 쓰는 동작이라 크고 단순하게) */}
-            <div style={{ display:"flex", gap:8, marginBottom:6 }}>
-              <input type="number" inputMode="numeric" placeholder="몇 분?" value={inputMin}
-                onChange={e=>setInputMin(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&addRecord()}
-                style={{ flex:1, minWidth:0, background:"#1e2038", border:"none", borderRadius:10, padding:"13px 16px", color:"#e8eaf6", fontSize:16, fontWeight:600, outline:"none" }}/>
-              <button onClick={addRecord} style={{ background:"#4F7CFF", border:"none", borderRadius:10, padding:"13px 24px", color:"#fff", fontSize:15, fontWeight:800, cursor:"pointer", flexShrink:0 }}>기록</button>
+            {/* 시작/종료 시각 입력 — 분은 자동 계산 */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:5, marginBottom:8 }}>
+              <select value={inputStart.split(":")[0]} onChange={e=>setInputStart(`${e.target.value}:${inputStart.split(":")[1]}`)}
+                style={{ width:46, background:"#1e2038", border:"none", borderRadius:8, padding:"9px 0", color:"#e8eaf6", fontSize:13, outline:"none", textAlign:"center" }}>
+                {Array.from({length:24},(_,i)=>String(i).padStart(2,"0")).map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+              <span style={{ color:"#3a4060", fontSize:12 }}>:</span>
+              <select value={inputStart.split(":")[1]} onChange={e=>setInputStart(`${inputStart.split(":")[0]}:${e.target.value}`)}
+                style={{ width:46, background:"#1e2038", border:"none", borderRadius:8, padding:"9px 0", color:"#e8eaf6", fontSize:13, outline:"none", textAlign:"center" }}>
+                {Array.from({length:60},(_,i)=>String(i).padStart(2,"0")).map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <span style={{ color:"#4a5270", fontSize:13, padding:"0 2px" }}>→</span>
+              <select value={inputEnd.split(":")[0]} onChange={e=>setInputEnd(`${e.target.value}:${inputEnd.split(":")[1]}`)}
+                style={{ width:46, background:"#1e2038", border:"none", borderRadius:8, padding:"9px 0", color:"#e8eaf6", fontSize:13, outline:"none", textAlign:"center" }}>
+                {Array.from({length:24},(_,i)=>String(i).padStart(2,"0")).map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+              <span style={{ color:"#3a4060", fontSize:12 }}>:</span>
+              <select value={inputEnd.split(":")[1]} onChange={e=>setInputEnd(`${inputEnd.split(":")[0]}:${e.target.value}`)}
+                style={{ width:46, background:"#1e2038", border:"none", borderRadius:8, padding:"9px 0", color:"#e8eaf6", fontSize:13, outline:"none", textAlign:"center" }}>
+                {Array.from({length:60},(_,i)=>String(i).padStart(2,"0")).map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
             </div>
-            <style>{`input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }`}</style>
 
-            {/* 시각: 평소엔 작은 텍스트, 사후 입력일 때만 펼쳐서 수정 */}
-            {!showTimeEdit ? (
-              <button onClick={()=>setShowTimeEdit(true)} style={{ background:"none", border:"none", color:"#4a5270", fontSize:11, cursor:"pointer", padding:"0 0 10px", display:"flex", alignItems:"center", gap:5 }}>
-                🕐 {inputTime}에 기록돼요 <span style={{ color:"#6b7299", textDecoration:"underline" }}>시간 바꾸기</span>
-              </button>
-            ) : (
-              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, background:"#1e2038", borderRadius:10, padding:"6px 10px" }}>
-                <span style={{ fontSize:11, color:"#6b7299", flexShrink:0 }}>🕐 시각</span>
-                <select value={inputTime.split(":")[0]} onChange={e=>setInputTime(`${e.target.value}:${inputTime.split(":")[1]}`)}
-                  style={{ background:"#13152a", border:"none", borderRadius:8, padding:"6px 2px", color:"#e8eaf6", fontSize:13, outline:"none", textAlign:"center", width:42 }}>
-                  {Array.from({length:24},(_,i)=>String(i).padStart(2,"0")).map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-                <span style={{ color:"#3a4060" }}>:</span>
-                <select value={inputTime.split(":")[1]} onChange={e=>setInputTime(`${inputTime.split(":")[0]}:${e.target.value}`)}
-                  style={{ background:"#13152a", border:"none", borderRadius:8, padding:"6px 2px", color:"#e8eaf6", fontSize:13, outline:"none", textAlign:"center", width:42 }}>
-                  {Array.from({length:60},(_,i)=>String(i).padStart(2,"0")).map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-                <button onClick={()=>setShowTimeEdit(false)} style={{ marginLeft:"auto", background:"none", border:"none", color:"#4F7CFF", fontSize:11, fontWeight:700, cursor:"pointer", flexShrink:0 }}>완료</button>
+            {/* 자동 계산된 소요시간 + 기록 버튼 (제일 자주 누르는 동작이라 크고 단순하게) */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+              <div style={{ fontSize:14, color:"#8892b0", fontWeight:700, flexShrink:0, minWidth:48 }}>
+                ⏱ {Math.floor(calcDuration(inputStart,inputEnd)/60)>0?`${Math.floor(calcDuration(inputStart,inputEnd)/60)}h `:""}{calcDuration(inputStart,inputEnd)%60}m
               </div>
-            )}
+              <button onClick={addRecord} style={{ flex:1, background:"#4F7CFF", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:15, fontWeight:800, cursor:"pointer" }}>기록</button>
+            </div>
 
             <input placeholder="메모 (선택)" value={memo} onChange={e=>setMemo(e.target.value)}
               style={{ width:"100%", boxSizing:"border-box", background:"#1e2038", border:"none", borderRadius:10, padding:"9px 12px", color:"#e8eaf6", fontSize:12, outline:"none", marginBottom:8 }}/>
@@ -703,15 +718,25 @@ export default function App() {
                                   <button key={c.id} onClick={()=>setEditCat(c.id)} style={{ padding:"5px 2px", borderRadius:7, fontSize:9, border:"none", cursor:"pointer", background: editCat===c.id?c.color:"#1e2038", color: editCat===c.id?"#fff":"#6b7299" }}>{c.emoji} {c.label}</button>
                                 ))}
                               </div>
-                              <div style={{ display:"flex", gap:4, marginBottom:6, alignItems:"center" }}>
-                                <select value={editTime.split(":")[0]} onChange={e=>setEditTime(`${e.target.value}:${editTime.split(":")[1]}`)} style={{ width:42, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"6px 0", textAlign:"center", outline:"none" }}>
+                              <div style={{ display:"flex", gap:3, marginBottom:6, alignItems:"center", justifyContent:"center" }}>
+                                <select value={editStart.split(":")[0]} onChange={e=>setEditStart(`${e.target.value}:${editStart.split(":")[1]}`)} style={{ width:38, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"6px 0", textAlign:"center", outline:"none" }}>
                                   {Array.from({length:24},(_,i2)=>String(i2).padStart(2,"0")).map(h => <option key={h} value={h}>{h}</option>)}
                                 </select>
-                                <span style={{ color:"#3a4060", fontSize:11 }}>:</span>
-                                <select value={editTime.split(":")[1]} onChange={e=>setEditTime(`${editTime.split(":")[0]}:${e.target.value}`)} style={{ width:42, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"6px 0", textAlign:"center", outline:"none" }}>
+                                <span style={{ color:"#3a4060", fontSize:10 }}>:</span>
+                                <select value={editStart.split(":")[1]} onChange={e=>setEditStart(`${editStart.split(":")[0]}:${e.target.value}`)} style={{ width:38, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"6px 0", textAlign:"center", outline:"none" }}>
                                   {Array.from({length:60},(_,i2)=>String(i2).padStart(2,"0")).map(m => <option key={m} value={m}>{m}</option>)}
                                 </select>
-                                <input type="number" inputMode="numeric" value={editMin} onChange={e=>setEditMin(e.target.value)} placeholder="분" style={{ flex:1, minWidth:0, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:12, padding:"6px 8px", textAlign:"center", outline:"none" }}/>
+                                <span style={{ color:"#4a5270", fontSize:11, padding:"0 1px" }}>→</span>
+                                <select value={editEnd.split(":")[0]} onChange={e=>setEditEnd(`${e.target.value}:${editEnd.split(":")[1]}`)} style={{ width:38, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"6px 0", textAlign:"center", outline:"none" }}>
+                                  {Array.from({length:24},(_,i2)=>String(i2).padStart(2,"0")).map(h => <option key={h} value={h}>{h}</option>)}
+                                </select>
+                                <span style={{ color:"#3a4060", fontSize:10 }}>:</span>
+                                <select value={editEnd.split(":")[1]} onChange={e=>setEditEnd(`${editEnd.split(":")[0]}:${e.target.value}`)} style={{ width:38, background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"6px 0", textAlign:"center", outline:"none" }}>
+                                  {Array.from({length:60},(_,i2)=>String(i2).padStart(2,"0")).map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <span style={{ color:"#8892b0", fontSize:10, fontWeight:700, flexShrink:0, marginLeft:2 }}>
+                                  {Math.floor(calcDuration(editStart,editEnd)/60)>0?`${Math.floor(calcDuration(editStart,editEnd)/60)}h `:""}{calcDuration(editStart,editEnd)%60}m
+                                </span>
                               </div>
                               <input value={editMemo} onChange={e=>setEditMemo(e.target.value)} placeholder="메모" style={{ width:"100%", boxSizing:"border-box", background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"7px 9px", marginBottom:4, outline:"none" }}/>
                               <input value={editOutput} onChange={e=>setEditOutput(e.target.value)} placeholder="결과물" style={{ width:"100%", boxSizing:"border-box", background:"#0d1228", border:"none", borderRadius:6, color:"#e8eaf6", fontSize:11, padding:"7px 9px", marginBottom:8, outline:"none" }}/>
